@@ -30,6 +30,21 @@ const metricList = document.getElementById("metricList");
 const applyFilters = document.getElementById("applyFilters");
 const downloadData = document.getElementById("downloadData");
 
+// Unified palette
+const palette = {
+  blue: "#1c4d8c",
+  red: "#b74c4c",
+  gray: "#475569",
+  grid: "#e3e7ee",
+};
+
+// Chart.js theme defaults
+if (window.Chart) {
+  Chart.defaults.color = palette.gray;
+  Chart.defaults.font.family = "Inter, Segoe UI, system-ui, sans-serif";
+  Chart.defaults.plugins.legend.position = "bottom";
+}
+
 const dataStore = {
   capacity: [],
   demand: [],
@@ -37,6 +52,10 @@ const dataStore = {
   exports: [],
   exportPrices: [],
   employment: [],
+  capacityIndex: [],
+  demandIndex: [],
+  productionIndex: [],
+  emissionIndex: [],
 };
 
 const formatNumber = (value, digits = 0) =>
@@ -111,11 +130,19 @@ const renderLineChart = (selector, series, { yLabel } = {}) => {
     .append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
+  // Gridlines
   g.append("g")
+    .attr("class", "d3-grid")
+    .attr("transform", `translate(0,0)`) // y grid
+    .call(d3.axisLeft(y).ticks(5).tickSize(-innerWidth).tickFormat(() => ""));
+
+  // Axes
+  g.append("g")
+    .attr("class", "d3-axis x-axis")
     .attr("transform", `translate(0,${innerHeight})`)
     .call(d3.axisBottom(x).ticks(6).tickFormat(d3.format("d")));
 
-  g.append("g").call(d3.axisLeft(y).ticks(5));
+  g.append("g").attr("class", "d3-axis y-axis").call(d3.axisLeft(y).ticks(5));
 
   if (yLabel) {
     g.append("text")
@@ -128,13 +155,36 @@ const renderLineChart = (selector, series, { yLabel } = {}) => {
       .text(yLabel);
   }
 
+  const colorAlpha = (hex, alpha) => {
+    // convert hex to rgba string
+    const h = hex.replace("#", "");
+    const bigint = parseInt(h, 16);
+    const r = (bigint >> 16) & 255;
+    const gC = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${gC}, ${b}, ${alpha})`;
+  };
+
   const line = d3
     .line()
     .x((d) => x(d.year))
     .y((d) => y(d.value))
     .curve(d3.curveMonotoneX);
 
+  const area = d3
+    .area()
+    .x((d) => x(d.year))
+    .y0(() => y.range()[0])
+    .y1((d) => y(d.value))
+    .curve(d3.curveMonotoneX);
+
   series.forEach((item) => {
+    // area fill for readability
+    g.append("path")
+      .datum(item.data)
+      .attr("fill", colorAlpha(item.color, 0.15))
+      .attr("d", area);
+
     g.append("path")
       .datum(item.data)
       .attr("fill", "none")
@@ -163,6 +213,59 @@ const renderLineChart = (selector, series, { yLabel } = {}) => {
       .attr("fill", "#475569")
       .text(item.label);
   });
+
+  // Tooltip/focus
+  const bisect = d3.bisector((d) => d.year).left;
+  const focus = g.append("g").style("display", "none");
+  focus.append("circle").attr("r", 4).attr("fill", palette.blue).attr("stroke", "#fff").attr("stroke-width", 2);
+  const tooltip = g.append("g").style("display", "none");
+  tooltip
+    .append("rect")
+    .attr("width", 160)
+    .attr("height", 48)
+    .attr("fill", "#0b1a2b")
+    .attr("rx", 6)
+    .attr("opacity", 0.95);
+  const t1 = tooltip
+    .append("text")
+    .attr("x", 8)
+    .attr("y", 18)
+    .attr("fill", "#ffffff")
+    .attr("font-size", "12px");
+  const t2 = tooltip
+    .append("text")
+    .attr("x", 8)
+    .attr("y", 34)
+    .attr("fill", "#ffffff")
+    .attr("font-size", "12px");
+
+  const overlay = g
+    .append("rect")
+    .attr("class", "overlay")
+    .attr("fill", "transparent")
+    .attr("width", innerWidth)
+    .attr("height", innerHeight)
+    .on("mousemove", function (event) {
+      const [mx] = d3.pointer(event, this);
+      const xYear = Math.round(x.invert(mx));
+      const s0 = series[0].data;
+      const i = Math.max(0, Math.min(s0.length - 1, bisect(s0, xYear)));
+      const d0 = s0[i];
+      if (!d0) return;
+      const cx = x(d0.year);
+      const cy = y(d0.value);
+      focus.style("display", null).attr("transform", `translate(${cx},${cy})`);
+      tooltip.style("display", null).attr("transform", `translate(${cx + 12},${cy - 24})`);
+
+      const sA = series[0].data.find((p) => p.year === d0.year);
+      const sB = series[1]?.data.find((p) => p.year === d0.year);
+      t1.text(`${series[0].label}: ${sA ? sA.value.toFixed(1) : "-"}`);
+      t2.text(`${series[1]?.label || ""}: ${sB ? sB.value.toFixed(1) : "-"}`);
+    })
+    .on("mouseleave", () => {
+      focus.style("display", "none");
+      tooltip.style("display", "none");
+    });
 };
 
 const initStaticCharts = () => {
@@ -357,6 +460,8 @@ const init = async () => {
     const capacityIndex = normalizeSeries(alignedA, baseYear);
     const demandIndex = normalizeSeries(alignedB, baseYear);
 
+    dataStore.capacityIndex = capacityIndex;
+    dataStore.demandIndex = demandIndex;
     renderLineChart("#capacityChart", [
       { label: "Производствен капацитет (proxy)", data: capacityIndex, color: "#1c4d8c" },
       { label: "Глобално търсене (proxy)", data: demandIndex, color: "#b74c4c" },
@@ -369,6 +474,8 @@ const init = async () => {
     const productionIndex = normalizeSeries(alignedA, baseYear);
     const emissionIndex = normalizeSeries(alignedB, baseYear);
 
+    dataStore.productionIndex = productionIndex;
+    dataStore.emissionIndex = emissionIndex;
     renderLineChart("#emissionsChart", [
       { label: "Производство (proxy)", data: productionIndex, color: "#1c4d8c" },
       { label: "Емисии CO₂", data: emissionIndex, color: "#b74c4c" },
@@ -426,6 +533,33 @@ const init = async () => {
 
   updateMetricList();
 };
+
+const debounce = (fn, wait = 150) => {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+};
+
+const redrawCharts = debounce(() => {
+  if (dataStore.capacityIndex.length && dataStore.demandIndex.length) {
+    const baseYear = dataStore.capacityIndex[0]?.year;
+    renderLineChart("#capacityChart", [
+      { label: "Производствен капацитет (proxy)", data: dataStore.capacityIndex, color: palette.blue },
+      { label: "Глобално търсене (proxy)", data: dataStore.demandIndex, color: palette.red },
+    ], { yLabel: "Индекс (" + baseYear + "=100)" });
+  }
+  if (dataStore.productionIndex.length && dataStore.emissionIndex.length) {
+    const baseYear = dataStore.productionIndex[0]?.year;
+    renderLineChart("#emissionsChart", [
+      { label: "Производство (proxy)", data: dataStore.productionIndex, color: palette.blue },
+      { label: "Емисии CO₂", data: dataStore.emissionIndex, color: palette.red },
+    ], { yLabel: "Индекс (" + baseYear + "=100)" });
+  }
+}, 200);
+
+window.addEventListener("resize", redrawCharts);
 
 if (applyFilters && metricList) {
   applyFilters.addEventListener("click", () => {

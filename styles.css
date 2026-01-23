@@ -10,6 +10,8 @@
   --red-500: #b74c4c;
   --red-300: #d88c8c;
   --white: #ffffff;
+  --gridline: #e3e7ee;
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
   --shadow: 0 12px 30px rgba(11, 26, 43, 0.12);
 }
 
@@ -20,7 +22,7 @@
 }
 
 body {
-  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.6;
   background: var(--white);
   color: var(--blue-900);
@@ -130,7 +132,7 @@ a {
 }
 
 h1 {
-  font-size: clamp(2rem, 2.8vw, 3.2rem);
+  font-size: clamp(2.2rem, 3vw, 3.4rem);
   margin: 12px 0 16px;
   color: var(--blue-900);
 }
@@ -245,7 +247,7 @@ h1 {
 }
 
 .section-header h2 {
-  font-size: clamp(1.6rem, 2.2vw, 2.4rem);
+  font-size: clamp(1.8rem, 2.4vw, 2.6rem);
   margin-bottom: 12px;
 }
 
@@ -299,6 +301,25 @@ h1 {
   width: 100%;
   height: 280px;
   display: block;
+}
+
+/* D3 axis and grid styling */
+.d3-grid .tick line {
+  stroke: var(--gridline);
+  stroke-opacity: 1;
+}
+
+.d3-grid path.domain {
+  stroke: none;
+}
+
+.d3-axis path.domain {
+  stroke: var(--gray-200);
+}
+
+.d3-axis .tick text {
+  fill: var(--gray-700);
+  font-size: 12px;
 }
 
 .table-card {
