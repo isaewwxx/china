@@ -238,6 +238,10 @@ h1 {
   padding: 70px 0;
 }
 
+.section + .section {
+  border-top: 1px solid var(--gray-200);
+}
+
 .section-alt {
   background: var(--gray-100);
 }
@@ -292,9 +296,17 @@ h1 {
   min-height: 320px;
 }
 
+.chart-card--tall {
+  min-height: 360px;
+}
+
 .chart-card canvas {
   width: 100% !important;
   height: 280px !important;
+}
+
+.chart-card--tall canvas {
+  height: 320px !important;
 }
 
 .chart-card svg {

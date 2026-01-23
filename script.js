@@ -3,8 +3,12 @@ const chartDefaults = {
   maintainAspectRatio: false,
   plugins: {
     legend: {
+      position: "bottom",
       labels: {
         color: "#0b1a2b",
+        usePointStyle: true,
+        boxWidth: 10,
+        padding: 16,
       },
     },
     tooltip: {
@@ -289,6 +293,7 @@ const initStaticCharts = () => {
 
   const financeCtx = document.getElementById("financeChart");
   if (financeCtx) {
+    const isNarrow = window.innerWidth < 720;
     new Chart(financeCtx, {
       type: "doughnut",
       data: {
@@ -303,10 +308,19 @@ const initStaticCharts = () => {
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
+        cutout: "68%",
+        layout: { padding: 10 },
         plugins: {
           legend: {
-            position: "bottom",
-            labels: { color: "#0b1a2b" },
+            position: isNarrow ? "bottom" : "right",
+            align: "center",
+            labels: {
+              color: "#0b1a2b",
+              usePointStyle: true,
+              boxWidth: 10,
+              padding: 14,
+            },
           },
         },
       },
